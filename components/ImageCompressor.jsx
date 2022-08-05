@@ -1,8 +1,18 @@
 import React from "react";
 
 import imageCompression from "browser-image-compression";
+import S3 from "react-aws-s3";
 
 import Card from "react-bootstrap/Card";
+import { s3Config } from "../common/s3Config";
+
+const uuidv4 = () => {
+  return "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0,
+      v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 export default class imageCompressor extends React.Component {
   constructor() {
@@ -17,7 +27,11 @@ export default class imageCompressor extends React.Component {
     };
   }
 
-  handle = (e) => {
+  handle = async (e) => {
+    if (e.target.files.length === 0) {
+      return;
+    }
+
     const imageFile = e.target.files[0];
     this.setState({
       originalLink: URL.createObjectURL(imageFile),
@@ -46,12 +60,21 @@ export default class imageCompressor extends React.Component {
     }
 
     let output;
-    imageCompression(this.state.originalImage, options).then((x) => {
+    imageCompression(this.state.originalImage, options).then(async (x) => {
       output = x;
 
       const downloadLink = URL.createObjectURL(output);
       this.setState({
         compressedLink: downloadLink,
+      });
+
+      const ReactS3Client = new S3(s3Config);
+      await ReactS3Client.uploadFile(output, uuidv4()).then((data) => {
+        if (data.status === 204) {
+          console.log("success");
+        } else {
+          console.log("fail");
+        }
       });
     });
 
